@@ -1,48 +1,109 @@
 var crypto = require('crypto')
 var assert = require('assert')
 
-function Output (checksum, count, header, body) {
-    checksum.update(String(count), 'utf8')
-    checksum.update(String(header.length), 'utf8')
-    checksum.update(String(body.length), 'utf8')
-    checksum.update(header)
-    checksum.update(body)
-    this.checksum = checksum.digest('hex')
-    this.frame = new Buffer([ this.checksum, count, header.length, body.length ].join(' '))
+function Writer (options) {
+    this._hash = options.hash
+    this._bufferSize = options.bufferSize
+    this._count = 1
+    this._destination = {
+        buffer: new Buffer(this._bufferSize),
+        offset: 0
+    }
+    this._checksum = createChecksum(this._hash).digest('hex')
+    this._buffers = []
+}
+
+function lengthOf (object) {
+    if (Buffer.isBuffer(object)) {
+        return object.length
+    } else {
+        return Buffer.byteLength(object)
+    }
+}
+
+function write (buffer, offset, object) {
+    if (Buffer.isBuffer(object)) {
+        object.copy(buffer, offset)
+    } else {
+        buffer.write(object, offset)
+    }
+}
+
+function Output (writer, header) {
+    this._writer = writer
+    this._header = header
+    this._count = 0
+}
+
+Output.prototype._serialize = function (count, header, body) {
+    var headerLength = header ? lengthOf(header) : 'x',
+        bodyLength = lengthOf(body)
+    var checksum = createChecksum(this._writer._hash)
+    checksum.update(String(count))
+    checksum.update(String(headerLength))
+    checksum.update(String(bodyLength))
+    var frameLength = Buffer.byteLength([ this._writer._checksum, count, headerLength, bodyLength ].join(' '))
     // 64 should be enough for now, enough for a petabyte header and body.
-    assert(this.frame.length < 64, 'frame to large')
-    this.header = header
-    this.body = body
-    this.length = this.frame.length + header.length + body.length + 3
+    assert(frameLength < 64, 'frame to large')
+    var written = frameLength + bodyLength + 2
+    if (headerLength != 'x') {
+        written += headerLength + 1
+    }
+    var buffer = this._writer._destination.buffer, offset = this._writer._destination.offset, start = offset
+    if (buffer.length - offset < written) {
+        this._writer._buffers.push(buffer.slice(0, offset))
+        this._writer._destination = {
+            buffer: new Buffer(Math.max(this._writer._bufferSize, written)),
+            offset: 0
+        }
+        return { length: 0 }
+    }
+    offset += frameLength + 1
+    if (headerLength != 'x') {
+        write(buffer, offset, header)
+        checksum.update(buffer.slice(offset, offset + headerLength))
+        buffer[offset + headerLength] = 0xa
+        offset += headerLength + 1
+    }
+    write(buffer, offset, body)
+    checksum.update(buffer.slice(offset, offset + bodyLength))
+    buffer[offset + bodyLength] = 0xa
+    offset += bodyLength + 1
+    var checksum = checksum.digest('hex')
+    assert(checksum.length == this._writer._checksum.length, 'checksum length inconsistent')
+    var frame = new Buffer([ checksum, count, headerLength, bodyLength ].join(' '))
+    write(buffer, start, frame)
+    buffer[start + frameLength] = 0xa
+    this._writer._destination.offset += written
+    return {
+        checksum: checksum,
+        length: written
+    }
 }
 
-Output.prototype.copy = function (target, offset) {
-    this.frame.copy(target, offset)
-    target[offset + this.frame.length] = 0xa
-    offset += this.frame.length + 1
-
-    this.header.copy(target, offset)
-    target[offset + this.header.length] = 0xa
-    offset += this.header.length + 1
-
-    this.body.copy(target, offset)
-    target[offset + this.body.length] = 0xa
-}
-
-function Writer (hash) {
-    this._hash = hash
-    this._count = 1
-}
-
-Writer.prototype.append = function (header, body) {
+Output.prototype.write = function (body) {
     this._count++
-    return this._output(0, header, body)
+    var header = this._count == 1 ? this._header : null
+    return this._serialize(0, header, body)
 }
 
-Writer.prototype.terminate = function (header, body) {
-    var count = this._count
-    this._count = 1
-    return this._output(count, header, body)
+Output.prototype.end = function (body) {
+    this._count++
+    var header = this._count == 1 ? this._header : null
+    return this._serialize(this._count, header, body)
+}
+
+Writer.prototype.output = function (header) {
+    return new Output(this, header)
+}
+
+Writer.prototype.end = function () {
+    var buffer = this._destination.buffer, offset = this._destination.offset, start = offset
+    this._buffers.push(buffer.slice(0, offset))
+}
+
+Writer.prototype.buffers = function () {
+    return this._buffers.slice(0, this._buffers.length)
 }
 
 function createChecksum (hash) {
@@ -51,79 +112,187 @@ function createChecksum (hash) {
          : new hash(0)
 }
 
-Writer.prototype._output = function (count, header, body) {
-    var output = new Output(createChecksum(this._hash), count, header, body)
-    this.previous = this.checksum
-    return output
+function Input (reader, sip) {
+    this._reader = reader
+    this._fields = sip.fields
+    this._sip = sip.length
 }
 
-function Input (hash, frameLength, offset, fields) {
-    this._hash = hash
-    this.offset = offset
-    this.checksum = fields[0]
-    this.count = +fields[1]
-    this.headerLength = +fields[2]
-    this.bodyLength = +fields[3]
-    this.payloadLength = this.headerLength + this.bodyLength + 2
-    this.length = frameLength + this.payloadLength
-}
-
-Input.prototype.read = function (source) {
-    var checksum = createChecksum(this._hash)
-    checksum.update(String(this.count), 'utf8')
-    checksum.update(String(this.headerLength), 'utf8')
-    checksum.update(String(this.bodyLength), 'utf8')
-    var offset = this.offset
-    this.header = source.slice(offset, offset + this.headerLength)
-    checksum.update(this.header)
-    offset += this.headerLength + 1
-    this.body = source.slice(offset, offset + this.bodyLength)
-    checksum.update(this.body)
-    this.valid = checksum.digest('hex') == this.checksum
-}
-
-function Reader (options) {
+function Reader (options, buffers) {
     this._options = options
+    this._buffers = []
+    this._position = { index: 0, offset: 0 }
+    this._end = this._buffers.length ? {
+        index: buffers.length - 1,
+        offset: buffers[buffers.length - 1].length
+    } : { index: 0 }
 }
 
-Reader.prototype.sip = function (source, offset) {
-    offset = offset || 0
-    for (var i = offset, I = Math.min(offset + 64, source.length); i < I; i++) {
-        if (source[i] == 0xa) {
-            break
-        }
+Reader.prototype.distance = function (start, end) {
+    if (start.index == end.index) {
+        return end.offset - start.offset
     }
-    if (source[i] != 0xa) {
+    var distance = this._buffers[start.index].length - start.offset
+    for (var i = start.index + 1, I = end.index - 1; i < I; i++) {
+        distance += this._buffers[i].length
+    }
+    distance += end.offset
+    return distance
+}
+
+Reader.prototype.join = function (start, end) {
+    if (start.index == end.index) {
+        return this._buffers[start.index].slice(start.offset, end.offset)
+    }
+    var buffers = [ this._buffers[start.index].slice(start.offset) ]
+    for (var i = start.index + 1, I = end.index - 1; i < I; i++) {
+        buffers.push(this._buffers[i])
+    }
+    buffers.push(this._buffers[end.index - 1].slice(0, end.offset))
+    return Buffer.concat(buffers)
+}
+
+Reader.prototype.remainder = function () {
+    return this.distance(this._position, this._end)
+}
+
+Reader.prototype.push = function (buffer) {
+    this._buffers.push(buffer)
+    this._end = {
+        index: this._buffers.length - 1,
+        offset: this._buffers[this._buffers.length - 1].length
+    }
+}
+
+Reader.prototype.freeze = function () {
+    this.purge()
+    var offset = this._position.offset
+    this._buffers = this._buffers.map(function (buffer) {
+        buffer = buffer.slice(offset)
+        offset = 0
+        return buffer
+    })
+}
+
+Reader.prototype.purge = function () {
+    while (this._position.index != 0) {
+        this._buffers.shift()
+        this._position.index--
+    }
+}
+
+Reader.prototype.read = function () {
+    this.purge()
+    var mark = this._position, sip = this.sip()
+    if (sip) {
+        // validate
+        var input = new Input(this, sip)
+        if (this.remainder() < sip.payloadLength) {
+            this._position = mark
+            return null
+        }
+        var record = {}
+        if (sip.header != null) {
+            record.header = this.slice(sip.header.mark, sip.header.length)
+        }
+        record.count = sip.count
+        record.body = this.slice(sip.body.mark, sip.body.length)
+        record.length = sip.length
+        var checksum = createChecksum(this._options.hash)
+        checksum.update(String(sip.count), 'utf8')
+        checksum.update(String(sip.header ? sip.header.length : 'x'), 'utf8')
+        checksum.update(String(sip.body.length), 'utf8')
+        if (record.header) {
+            checksum.update(record.header)
+        }
+        checksum.update(record.body)
+        record.valid = checksum.digest('hex') == sip.checksum
+
+        this._position = this.advance(mark, sip.length)
+        return record
+    } else {
+        throw new Error
+    }
+}
+
+Reader.prototype.advance = function (mark, distance) {
+    var index = mark.index, offset = mark.offset
+    while (index < this._buffers.length) {
+        var buffer = this._buffers[index]
+        if (distance <= buffer.length - offset) {
+            return {
+                index: index,
+                offset: offset + distance
+            }
+        }
+        distance -= buffer.length - offset
+        offset = 0
+        index++
+    }
+    return null
+}
+
+Reader.prototype.slice = function (mark, distance) {
+    var end = this.advance(mark, distance)
+    if (!end) {
         return null
     }
-    var frameLength = (i - offset) + 1
-    var fields = source.toString('utf8', offset, i).split(' ')
+    if (mark.index == end.index) {
+        return this._buffers[mark.index].slice(mark.offset, end.offset)
+    }
+    this.join(start, end)
+}
+
+Reader.prototype.sip = function () {
+    var start = this._position, buffers = this._buffers
+
+    var index = start.index, offset = start.offset, length = 64
+    OUTER: for (var i = index, I = this._buffers.length; i< I; i++) {
+        var source = this._buffers[i]
+        for (var j = offset, J = source.length; j < J && length--; j++) {
+            if (source[j] == 0xa) {
+                break OUTER
+            }
+        }
+        offset = 0
+    }
+
+    var end = { index: i, offset: j + 1 }
+    var distance = this.distance(start, end)
+    if (!source || source[j] != 0xa) {
+        return { length: distance }
+    }
+
+    var buffer = this.join(start, end)
+
+    var fields = buffer.toString('utf8', 0, buffer.length - 1).split(' ')
     if (fields.length != 4) {
         return null
     }
-    if (isNaN(+fields[1]) || isNaN(+fields[2]) || isNaN(+fields[3])) {
+    if (isNaN(+fields[1]) || (isNaN(+fields[2]) && fields[2] != 'x') || isNaN(+fields[3])) {
         return null
     }
-    return new Input(this._options.hash, frameLength, offset + frameLength, fields)
-}
 
-Reader.prototype.rewind = function (source, i) {
-    var I = -1, skip = 1
-    if (source[--i] != 0xa) {
-        return -1
+    var sip = {}, headerLength = 0, mark = end, payloadLength = 0
+    sip.checksum = fields[0]
+    sip.count = +fields[1]
+    sip.frame = {
+        mark: start,
+        length: this.distance(start, end) - 1
     }
-    OUTER: for (;;) {
-        for (;;) {
-            if (i == I) break OUTER
-            --i
-            if (source[i] == 0xa) break
-        }
-        if (skip--) {
-            continue
-        }
-        return isFrame(source, i)
+    if (fields[2] != 'x') {
+        sip.header = { mark: mark, length: +fields[2] }
+        payloadLength = sip.header.length + 1
+        mark = this.advance(mark, payloadLength)
     }
-    return -1
+    sip.body = {
+        mark: mark,
+        length: +fields[3]
+    }
+    sip.payloadLength = payloadLength + sip.body.length + 1
+    sip.length = sip.frame.length + 1 + sip.payloadLength
+
+    return sip
 }
 
 function isDecimal (ch) {
@@ -184,11 +353,13 @@ Reader.prototype.scan = function (direction, source, offset) {
 function Transcript (options) {
     options = options || {}
     options.hash = options.hash || require('hash.murmur3.32')
+    options.bufferSize = options.bufferSize || 1024 * 16
+    options.checksum = options.checksum
     this._options = options
 }
 
 Transcript.prototype.createWriter = function () {
-    return new Writer(this._options.hash)
+    return new Writer(this._options)
 }
 
 Transcript.prototype.createReader = function () {
