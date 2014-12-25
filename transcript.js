@@ -179,6 +179,9 @@ Reader.prototype.read = function () {
     this.purge()
     var mark = this._position, sip = this.sip()
     if (sip) {
+        if (sip.length == 0) {
+            return null
+        }
         // validate
         if (this.remainder() < sip.payloadLength) {
             this._position = mark
@@ -250,11 +253,12 @@ Reader.prototype.sip = function () {
         offset = 0
     }
 
+    if (!source || source[j] != 0xa) {
+        return { length: 0 }
+    }
+
     var end = { index: i, offset: j + 1 }
     var distance = this.distance(start, end)
-    if (!source || source[j] != 0xa) {
-        return { length: distance }
-    }
 
     var buffer = this.join(start, end)
 

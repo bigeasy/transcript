@@ -6,7 +6,7 @@ b\n\
 49328435 2 x 1\n\
 a\n'
 
-require('proof')(30, prove)
+require('proof')(31, prove)
 
 function prove (assert) {
     var Transcript = require('../../transcript')
@@ -83,6 +83,8 @@ function prove (assert) {
         length: 17,
         body: 'a'
     }, 'read chunk')
+
+    assert(reader.read() == null, 'eof')
 
 
     var wilderness = new Buffer(1024)
