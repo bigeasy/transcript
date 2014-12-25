@@ -112,12 +112,6 @@ function createChecksum (hash) {
          : new hash(0)
 }
 
-function Input (reader, sip) {
-    this._reader = reader
-    this._fields = sip.fields
-    this._sip = sip.length
-}
-
 function Reader (options, buffers) {
     this._options = options
     this._buffers = []
@@ -186,7 +180,6 @@ Reader.prototype.read = function () {
     var mark = this._position, sip = this.sip()
     if (sip) {
         // validate
-        var input = new Input(this, sip)
         if (this.remainder() < sip.payloadLength) {
             this._position = mark
             return null
