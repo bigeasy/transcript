@@ -6,7 +6,7 @@ b\n\
 49328435 2 x 1\n\
 a\n'
 
-require('proof')(31, prove)
+require('proof')(41, prove)
 
 function prove (assert) {
     var Transcript = require('../../transcript')
@@ -55,6 +55,8 @@ function prove (assert) {
     var reader = transcript.createReader(), input
     var offset = 4
 
+    assert(reader.remainder(), 0, 'empty')
+
     var output = writer.output(record.head)
     assert(output.write(record.body).length, 19, 'write chunk')
     assert(output.end('a').length, 17, 'end chunk')
@@ -101,8 +103,64 @@ function prove (assert) {
 
     var block = new Buffer(256)
     for (var i = 0, I = block.length; i < I; i++) {
+        block[i] = i
     }
+
+    var transcript = new Transcript({ bufferSize: 32 })
+    var writer = transcript.createWriter(), output
+    var output = writer.output(JSON.stringify({ a: 1 }))
+    assert(output.end(block).length, 282, 'first large block')
+    var output = writer.output()
+    assert(output.write(block).length, 274, 'large block as chunk')
+    assert(output.write(block).length, 274, 'large block as chunk continue')
+    assert(output.end(block).length, 274, 'large block as terminal')
+
+    var reader = transcript.createReader(), inputs = [], input
+    var buffer = Buffer.concat(writer.buffers())
+    for (var i = 0, I = buffer.length; i < I; i += 11) {
+        var slice = buffer.slice(i, i + 11)
+        reader.push(slice)
+        input = reader.read()
+        if (input) {
+            inputs.push(input)
+        }
+        reader.freeze()
+    }
+
+    assert(inputs.every(function (input) { return input.valid }), 'read acorss blocks')
 
     test(new Transcript, '9263a8c4')
     test(new Transcript({ hash: 'sha1' }), '1b89348164bea18497613f19f5c2f489ee3aa5ca')
+
+    try {
+        var reader = transcript.createReader()
+        reader.push(new Buffer('1 2 3\n'))
+        reader.read()
+    } catch (e) {
+        assert(e.message, 'invalid header', 'wrong number of fields')
+    }
+
+    try {
+        var reader = transcript.createReader()
+        reader.push(new Buffer('a . 2 3\n'))
+        reader.read()
+    } catch (e) {
+        assert(e.message, 'invalid header', 'invalid count')
+    }
+
+    try {
+        var reader = transcript.createReader()
+        reader.push(new Buffer('a 1 . 3\n'))
+        reader.read()
+    } catch (e) {
+        assert(e.message, 'invalid header', 'invalid header length')
+    }
+
+    try {
+        var reader = transcript.createReader()
+        reader.push(new Buffer('a 1 x .\n'))
+        reader.read()
+    } catch (e) {
+        assert(e.message, 'invalid header', 'invalid body length')
+    }
 }

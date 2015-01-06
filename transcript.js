@@ -51,12 +51,14 @@ Output.prototype._serialize = function (count, header, body) {
     }
     var buffer = this._writer._destination.buffer, offset = this._writer._destination.offset, start = offset
     if (buffer.length - offset < written) {
-        this._writer._buffers.push(buffer.slice(0, offset))
+        if (offset != 0) {
+            this._writer._buffers.push(buffer.slice(0, offset))
+        }
         this._writer._destination = {
             buffer: new Buffer(Math.max(this._writer._bufferSize, written)),
             offset: 0
         }
-        return { length: 0 }
+        return this._serialize(count, header, body)
     }
     offset += frameLength + 1
     if (headerLength != 'x') {
@@ -116,10 +118,7 @@ function Reader (options, buffers) {
     this._options = options
     this._buffers = []
     this._position = { index: 0, offset: 0 }
-    this._end = this._buffers.length ? {
-        index: buffers.length - 1,
-        offset: buffers[buffers.length - 1].length
-    } : { index: 0 }
+    this._end = { index: 0, offset: 0 }
 }
 
 Reader.prototype.distance = function (start, end) {
@@ -127,22 +126,27 @@ Reader.prototype.distance = function (start, end) {
         return end.offset - start.offset
     }
     var distance = this._buffers[start.index].length - start.offset
-    for (var i = start.index + 1, I = end.index - 1; i < I; i++) {
+    for (var i = start.index + 1, I = end.index; i < I; i++) {
         distance += this._buffers[i].length
     }
     distance += end.offset
     return distance
 }
 
-Reader.prototype.join = function (start, end) {
+Reader.prototype.slice = function (start, end) {
+    if (typeof end == 'number') {
+        var _end = end
+        end = this.advance(start, end)
+        assert(end, 'cannot advance for slice')
+    }
     if (start.index == end.index) {
         return this._buffers[start.index].slice(start.offset, end.offset)
     }
     var buffers = [ this._buffers[start.index].slice(start.offset) ]
-    for (var i = start.index + 1, I = end.index - 1; i < I; i++) {
+    for (var i = start.index + 1, I = end.index; i < I; i++) {
         buffers.push(this._buffers[i])
     }
-    buffers.push(this._buffers[end.index - 1].slice(0, end.offset))
+    buffers.push(this._buffers[end.index].slice(0, end.offset))
     return Buffer.concat(buffers)
 }
 
@@ -162,10 +166,11 @@ Reader.prototype.freeze = function () {
     this.purge()
     var offset = this._position.offset
     this._buffers = this._buffers.map(function (buffer) {
-        buffer = buffer.slice(offset)
+        buffer = Buffer.concat([ buffer.slice(offset), new Buffer(0) ])
         offset = 0
         return buffer
     })
+    this._position.offset = 0
 }
 
 Reader.prototype.purge = function () {
@@ -183,7 +188,7 @@ Reader.prototype.read = function () {
             return null
         }
         // validate
-        if (this.remainder() < sip.payloadLength) {
+        if (this.distance(sip.payload.mark, this._end) < sip.payload.length) {
             this._position = mark
             return null
         }
@@ -207,12 +212,13 @@ Reader.prototype.read = function () {
         this._position = this.advance(mark, sip.length)
         return record
     } else {
-        throw new Error
+        throw new Error('invalid header')
     }
 }
 
 Reader.prototype.advance = function (mark, distance) {
     var index = mark.index, offset = mark.offset
+    var add = 0
     while (index < this._buffers.length) {
         var buffer = this._buffers[index]
         if (distance <= buffer.length - offset) {
@@ -221,22 +227,12 @@ Reader.prototype.advance = function (mark, distance) {
                 offset: offset + distance
             }
         }
+        add += (buffer.length - offset)
         distance -= buffer.length - offset
         offset = 0
         index++
     }
     return null
-}
-
-Reader.prototype.slice = function (mark, distance) {
-    var end = this.advance(mark, distance)
-    if (!end) {
-        return null
-    }
-    if (mark.index == end.index) {
-        return this._buffers[mark.index].slice(mark.offset, end.offset)
-    }
-    this.join(start, end)
 }
 
 Reader.prototype.sip = function () {
@@ -260,7 +256,7 @@ Reader.prototype.sip = function () {
     var end = { index: i, offset: j + 1 }
     var distance = this.distance(start, end)
 
-    var buffer = this.join(start, end)
+    var buffer = this.slice(start, end)
 
     var fields = buffer.toString('utf8', 0, buffer.length - 1).split(' ')
     if (fields.length != 4) {
@@ -286,8 +282,11 @@ Reader.prototype.sip = function () {
         mark: mark,
         length: +fields[3]
     }
-    sip.payloadLength = payloadLength + sip.body.length + 1
-    sip.length = sip.frame.length + 1 + sip.payloadLength
+    sip.payload = {
+        mark: fields[2] == 'x' ? sip.body.mark : sip.header.mark,
+        length: payloadLength + sip.body.length + 1
+    }
+    sip.length = sip.frame.length + 1 + sip.payload.length
 
     return sip
 }
