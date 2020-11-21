@@ -1,4 +1,4 @@
-require('proof')(2, (okay) => {
+require('proof')(2, okay => {
     function checksum (buffer, start, end) { return end }
     const recorder = require('..').recorder(checksum)
     // format an entry with a record

@@ -16,23 +16,22 @@ class Player {
     split (chunk) {
         const entries = []
         let { state, header, checksums, sizes } = this._entry, start = 0
-        let offset = this._remainder.length
         chunk = Buffer.concat([ this._remainder, chunk ])
         SPLIT: for (;;) {
             switch (state) {
             case 'checksum': {
-                    const index = chunk.indexOf(0xa, offset)
+                    const index = chunk.indexOf(0xa, start)
                     if (!~index) {
                         break SPLIT
                     }
                     sizes.push(index - start + 1)
                     checksums = JSON.parse(chunk.slice(start, index + 1))
-                    start = offset = index + 1
+                    start = index + 1
                     state = 'header'
                 }
                 break
             case 'header': {
-                    const index = chunk.indexOf(0xa, offset)
+                    const index = chunk.indexOf(0xa, start)
                     if (!~index) {
                         break SPLIT
                     }
@@ -41,7 +40,7 @@ class Player {
                     assert.equal(checksums[0], this._checksum.call(null, buffer, 0, buffer.length))
                     header = JSON.parse(buffer.toString())
                     state = 'payload'
-                    start = offset = index + 1
+                    start = index + 1
                 }
                 break
             case 'payload': {
@@ -55,7 +54,7 @@ class Player {
                     for (const length of header.lengths) {
                         sizes.push(length)
                         let part = chunk.slice(start, start + length - 1)
-                        offset = start = start + length
+                        start = start + length
                         parts.push(part)
                     }
                     entries.push({
@@ -70,7 +69,7 @@ class Player {
             }
         }
         this._remainder = chunk.slice(start)
-        this._entry = { state, start, header, checksums, sizes }
+        this._entry = { state, header, checksums, sizes }
         return entries
     }
 
