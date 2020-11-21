@@ -25,6 +25,7 @@
     {
                         "hash.murmur3.32":  "0.0.0"
     },
+    "license": "MIT",
     "devDependencies":
     {
                         "proof":            "9.0.2",
