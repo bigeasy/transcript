@@ -1,39 +1,37 @@
 {
-    "name":             "transcript",
-    "version":          "0.0.6",
-    "author":           "Alan Gutierrez <alan@prettyrobots.com>",
-    "description":      "Append-only log that supports JSON or binary formats.",
+    "name":                 "transcript",
+    "version":              "0.0.6",
+    "description":
+
+      "Append-only log that supports JSON or binary formats.",
+
     "keywords":
     [
-                        "streams", "callbacks", "control", "flow"
+                            "streams", "callbacks", "control", "flow"
     ],
-    "contributors":     [],
-    "homepage":         "https://github.com/bigeasy/transcript",
-    "bugs":             "https://github.com/bigeasy/transcript/issues",
-    "licenses":
-    [{
-                        "type": "MIT",
-                        "url": "http://github.com/bigeasy/transcript/raw/master/LICENSE"
-    }],
+    "author":               "Alan Gutierrez <alan@prettyrobots.com>",
+    "contributors":         [],
+    "homepage":             "https://github.com/bigeasy/transcript",
+    "bugs":                 "https://github.com/bigeasy/transcript/issues",
+    "license":              "MIT",
     "repository":
     {
-                        "type": "git",
-                        "url": "bigeasy/transcript"
+                            "type": "git",
+                            "url": "bigeasy/transcript"
     },
-    "main":             "transcript.js",
     "dependencies":
     {
-                        "hash.murmur3.32":  "0.0.0"
+                            "hash.murmur3.32":              "0.0.0"
     },
-    "license": "MIT",
     "devDependencies":
     {
-                        "proof":            "9.0.2",
-                        "mkdirp":           "0.5.0",
-                        "rimraf":           "2.2.8"
+                            "mkdirp":                       "0.5.0",
+                            "proof":                        "9.0.2",
+                            "rimraf":                       "2.2.8"
     },
+    "main":                 "transcript.js",
     "scripts":
     {
-                        "test": "proof test/*.t.js"
+                            "test": "proof test/*.t.js"
     }
 }
