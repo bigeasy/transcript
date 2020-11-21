@@ -1,6 +1,6 @@
 module.exports = function (checksum) {
     const EOL = Buffer.from('\n')
-    return function (header, parts) {
+    return function (parts) {
         const payload = [], buffers = [], checksums = [], lengths = []
         for (const part of parts) {
             payload.push(part, EOL)
@@ -8,7 +8,7 @@ module.exports = function (checksum) {
         }
         buffers.unshift(Buffer.concat(payload))
         checksums.unshift(checksum(buffers[0], 0, buffers[0].length))
-        buffers.unshift(Buffer.concat([ Buffer.from(JSON.stringify({ lengths, header })), EOL ]))
+        buffers.unshift(Buffer.concat([ Buffer.from(JSON.stringify(lengths)), EOL ]))
         checksums.unshift(checksum(buffers[0], 0, buffers[0].length))
         buffers.unshift(Buffer.from(JSON.stringify(checksums)), EOL)
         return Buffer.concat(buffers)

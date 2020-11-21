@@ -15,7 +15,8 @@ class Player {
 
     split (chunk) {
         const entries = []
-        let { state, header, checksums, sizes } = this._entry, start = 0
+        let { state, checksums, sizes } = this._entry, start = 0
+        let lengths = this._lengths
         chunk = Buffer.concat([ this._remainder, chunk ])
         SPLIT: for (;;) {
             switch (state) {
@@ -27,10 +28,10 @@ class Player {
                     sizes.push(index - start + 1)
                     checksums = JSON.parse(chunk.slice(start, index + 1))
                     start = index + 1
-                    state = 'header'
+                    state = 'lengths'
                 }
                 break
-            case 'header': {
+            case 'lengths': {
                     const index = chunk.indexOf(0xa, start)
                     if (!~index) {
                         break SPLIT
@@ -38,27 +39,26 @@ class Player {
                     sizes.push(index - start + 1)
                     const buffer = chunk.slice(start, index + 1)
                     assert.equal(checksums[0], this._checksum.call(null, buffer, 0, buffer.length))
-                    header = JSON.parse(buffer.toString())
+                    lengths = JSON.parse(buffer.toString())
                     state = 'payload'
                     start = index + 1
                 }
                 break
             case 'payload': {
-                    const length = header.lengths.reduce((sum, value) => sum + value, 0)
+                    const length = lengths.reduce((sum, value) => sum + value, 0)
                     if (chunk.length - start < length) {
                         break SPLIT
                     }
                     const checksum = this._checksum.call(null, chunk, start, start + length)
                     assert.equal(checksums[1], checksum)
                     const parts = []
-                    for (const length of header.lengths) {
+                    for (const length of lengths) {
                         sizes.push(length)
                         let part = chunk.slice(start, start + length - 1)
                         start = start + length
                         parts.push(part)
                     }
                     entries.push({
-                        header: header.header,
                         parts: parts,
                         sizes: sizes
                     })
@@ -69,7 +69,8 @@ class Player {
             }
         }
         this._remainder = chunk.slice(start)
-        this._entry = { state, header, checksums, sizes }
+        this._lengths = lengths
+        this._entry = { state, checksums, sizes }
         return entries
     }
 
