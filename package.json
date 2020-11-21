@@ -1,6 +1,6 @@
 {
     "name":                 "transcript",
-    "version":              "0.0.6",
+    "version":              "0.1.0",
     "description":
 
       "Append-only log that supports JSON or binary formats.",
@@ -24,7 +24,7 @@
     },
     "devDependencies":
     {
-                        "proof":            "9.0.2"
+                            "proof":                        "9.0.2"
     },
     "main":                 "transcript.js",
     "scripts":
