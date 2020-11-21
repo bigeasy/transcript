@@ -33,6 +33,6 @@
     },
     "scripts":
     {
-                        "test": "proof */*/*.t.js"
+                        "test": "proof test/*.t.js"
     }
 }
