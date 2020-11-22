@@ -18,14 +18,14 @@ require('proof')(7, okay => {
         okay(player.split(buffer.slice(4, 10)), [], 'middle of header')
         okay(player.split(buffer.slice(10, 15)), [], 'middle of payload')
         const [ one, two ] = player.split(buffer.slice(15))
-        okay(two, {
-            parts: [],
-            sizes: [ 6, 3 ]
-        }, 'no parts')
         one.parts = one.parts.map(buffer => buffer.toString())
         okay(one, {
             parts: [ 'a', 'b' ],
             sizes: [ 6, 6, 2, 2 ]
         }, 'parts')
+        okay(two, {
+            parts: [],
+            sizes: [ 6, 3 ]
+        }, 'no parts')
     }
 })
