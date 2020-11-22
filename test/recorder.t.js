@@ -4,16 +4,16 @@ require('proof')(2, okay => {
     const recorder = Recorder.create(checksum)
     // format an entry with a record
     {
-        const buffer = recorder([ Buffer.from('"a"'), Buffer.from('"a"') ])
+        const buffer = recorder([[ Buffer.from('"a"'), Buffer.from('"b"') ], [ Buffer.from('"c"') ]])
         okay(buffer.toString().split(/\n/).slice(0, -1).map(function (line) {
             return JSON.parse(line)
-        }), [ [ 6, 8 ], [ 4, 4 ], 'a', 'a' ], 'buffer')
+        }), [ [ 12, 8, 4 ], [ [ 4, 4 ], [ 4 ] ], 'a', 'b', 'c' ], 'buffer')
     }
     // format an entry with no key or body
     {
         const buffer = recorder([])
         okay(buffer.toString().split(/\n/).slice(0, -1).map(function (line) {
             return JSON.parse(line)
-        }), [ [ 3, 0 ], [] ], 'empty')
+        }), [ [ 3 ], [] ], 'empty')
     }
 })
