@@ -1,6 +1,6 @@
 {
     "name":                 "transcript",
-    "version":              "0.1.0",
+    "version":              "0.1.1",
     "description":
 
       "Append-only log that supports JSON or binary formats.",
