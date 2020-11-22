@@ -1,2 +1,2 @@
-exports.recorder = require('./recorder')
+exports.Recorder = require('./recorder')
 exports.Player = require('./player')

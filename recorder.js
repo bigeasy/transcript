@@ -1,4 +1,4 @@
-module.exports = function (checksum) {
+exports.create = function (checksum) {
     const EOL = Buffer.from('\n')
     return function (parts) {
         const payload = [], buffers = [], checksums = [], lengths = []

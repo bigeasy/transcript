@@ -1,6 +1,7 @@
 require('proof')(2, okay => {
     function checksum (buffer, start, end) { return end }
-    const recorder = require('..').recorder(checksum)
+    const Recorder = require('..').Recorder
+    const recorder = Recorder.create(checksum)
     // format an entry with a record
     {
         const buffer = recorder([ Buffer.from('"a"'), Buffer.from('"a"') ])

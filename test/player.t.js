@@ -1,7 +1,7 @@
 require('proof')(7, okay => {
     function checksum (buffer, start, end) { return end - start }
-    const recorder = require('..').recorder(checksum)
-    const Player = require('..').Player
+    const { Recorder, Player } = require('..')
+    const recorder = Recorder.create(checksum)
     {
         const player = new Player(checksum)
         okay(player != null, 'constructed')
