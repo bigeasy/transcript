@@ -18,7 +18,7 @@ class Player {
 
     split (chunk, sip = null) {
         const entries = []
-        let { state, checksums, sizes } = this._entry, start = 0
+        let { state, checksums, sizes, sipped } = this._entry, start = 0
         let lengths = this._lengths
         let parts = this._parts
         chunk = Buffer.concat([ this._remainder, chunk ])
@@ -41,9 +41,11 @@ class Player {
                         break SPLIT
                     }
                     sizes.push(index - start + 1)
+                    sipped = sizes.slice()
                     const buffer = chunk.slice(start, index + 1)
                     assert.equal(checksums[0], this._checksum.call(null, buffer, 0, buffer.length))
                     lengths = JSON.parse(buffer.toString())
+                    sizes.push.apply(sizes, lengths.flat())
                     if (sip != null) {
                         lengths = lengths.splice(0, sip)
                     }
@@ -60,7 +62,7 @@ class Player {
                     const checksum = this._checksum.call(null, chunk, start, start + length)
                     assert.equal(checksums[1 + this._length], checksum)
                     for (const length of lengths[this._length]) {
-                        sizes.push(length)
+                        sipped.push(length)
                         let part = chunk.slice(start, start + length - 1)
                         start = start + length
                         parts.push(part)
@@ -69,10 +71,12 @@ class Player {
                     if (lengths.length == this._length) {
                         entries.push({
                             parts: parts,
-                            sizes: sizes
+                            sizes: sizes,
+                            sipped: sipped
                         })
                         this._length = 0
                         sizes = []
+                        sipped = []
                         state = 'checksum'
                         if (sip != null) {
                             break SPLIT
@@ -85,7 +89,7 @@ class Player {
         this._remainder = chunk.slice(start)
         this._lengths = lengths
         this._parts = parts
-        this._entry = { state, checksums, sizes }
+        this._entry = { state, checksums, sizes, sipped }
         return entries
     }
 

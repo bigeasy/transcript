@@ -21,17 +21,20 @@ require('proof')(8, okay => {
         one.parts = one.parts.map(buffer => buffer.toString())
         okay(one, {
             parts: [ 'a', 'b', 'c' ],
-            sizes: [ 9, 12, 2, 2, 2 ]
+            sizes: [ 9, 12, 2, 2, 2 ],
+            sipped: [ 9, 12, 2, 2, 2 ]
         }, 'parts')
         okay(two, {
             parts: [],
-            sizes: [ 6, 5 ]
+            sizes: [ 6, 5 ],
+            sipped: [ 6, 5 ]
         }, 'no parts')
         const [ sip ] = player.split(buffer, 1)
         sip.parts = sip.parts.map(buffer => buffer.toString())
         okay(sip, {
             parts: [ 'a', 'b' ],
-            sizes: [ 9, 12, 2, 2 ]
-        }, 'parts')
+            sizes: [ 9, 12, 2, 2, 2 ],
+            sipped: [ 9, 12, 2, 2 ]
+        }, 'sipped')
     }
 })
