@@ -86,7 +86,7 @@ class Player {
                 break
             }
         }
-        this._remainder = chunk.slice(start)
+        this._remainder = sip == null || entries.length == 0 ? chunk.slice(start) : Buffer.alloc(0)
         this._lengths = lengths
         this._parts = parts
         this._entry = { state, checksums, sizes, sipped }
