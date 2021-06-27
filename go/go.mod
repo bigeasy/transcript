@@ -1,4 +1,4 @@
-module prettyrobots.com/rtree
+module github.com/bigeasy/transcript/go
 
 go 1.16
 
