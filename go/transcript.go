@@ -18,7 +18,7 @@ func NewRecorder (checksum ChecksumFunc) *Recorder {
     return &Recorder{checksum}
 }
 
-func (recorder *Recorder) Record (keys []string, blocks [][][]byte) []byte {
+func (recorder *Recorder) Record (blocks [][][]byte) []byte {
     // TODO allocate necessary length only
     sums := [][]int{}
     var checksums []int

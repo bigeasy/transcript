@@ -14,10 +14,9 @@ func NullChecksum (_ []byte) int {
 
 func TestFullCycle (t *testing.T) {
     assert := assert.New(t)
-    strs := []string{"a"}
     r := NewRecorder(NullChecksum)
     buffer, _ := json.Marshal(true)
-    recorded := r.Record(strs, [][][]byte{ [][]byte{ buffer } })
+    recorded := r.Record([][][]byte{ [][]byte{ buffer } })
     p := NewPlayer(NullChecksum)
     chunks, _ := p.Split(recorded, 0)
     if len(chunks) != 1 {
