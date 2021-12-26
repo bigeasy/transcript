@@ -3,8 +3,6 @@ package transcript
 import (
     "bytes"
     "errors"
-    "os"
-    "fmt"
     "encoding/json"
 )
 
@@ -51,7 +49,7 @@ func (recorder *Recorder) Record (blocks [][][]byte) []byte {
     for _, body := range bodies {
         buffer = append(buffer, body...)
     }
-    fmt.Fprintf(os.Stdout, "hello %s, %d, %d, %d\n", string(buffer), cap(bodies), len(sums[0]), sums[0][0])
+    // fmt.Fprintf(os.Stdout, "hello %s, %d, %d, %d\n", string(buffer), cap(bodies), len(sums[0]), sums[0][0])
     return buffer
 }
 
@@ -92,7 +90,7 @@ func (p *Player) Split (chunk []byte, sip int) ([]Chunk, error) {
                 sizes = append(sizes, i + 1)
                 json.Unmarshal(chunk[0:i], &checksums)
                 chunk = chunk[i + 1:]
-                fmt.Fprintf(os.Stdout, "here %f \n", checksums[0])
+                // fmt.Fprintf(os.Stdout, "here %f \n", checksums[0])
                 p.state = "lengths"
             }
         case "lengths": {
@@ -115,7 +113,7 @@ func (p *Player) Split (chunk []byte, sip int) ([]Chunk, error) {
                     }
                 }
                 p.state = "block"
-                fmt.Fprintf(os.Stdout, "sipped %d %s %d %d %d\n", i, string(chunk), len(sipped), checksum, len(lengths))
+                // fmt.Fprintf(os.Stdout, "sipped %d %s %d %d %d\n", i, string(chunk), len(sipped), checksum, len(lengths))
             }
         case "block": {
                 sum := 0

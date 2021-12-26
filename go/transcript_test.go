@@ -1,8 +1,6 @@
 package transcript
 
 import (
-    "os"
-    "fmt"
     "testing"
     "encoding/json"
     "github.com/stretchr/testify/assert"
@@ -22,7 +20,7 @@ func TestFullCycle (t *testing.T) {
     if len(chunks) != 1 {
         t.Fatal("unexepcted chunk size")
     }
-    fmt.Fprintf(os.Stdout, "retrieved %s %d\n", string(chunks[0].parts[0]), chunks[0].sipped)
+    // fmt.Fprintf(os.Stdout, "retrieved %s %d\n", string(chunks[0].parts[0]), chunks[0].sipped)
     assert.Equal(string(chunks[0].parts[0]), "true", "body restored")
     assert.ElementsMatch(chunks[0].sizes, []int{4, 6, 5}, "sizes")
     assert.ElementsMatch(chunks[0].sipped, []int{4, 6, 5}, "sipped")
