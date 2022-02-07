@@ -3,7 +3,7 @@ name: Node CI
 on: [push]
 
 jobs:
-  build:
+  node:
 
     runs-on: ubuntu-latest
 
@@ -33,3 +33,12 @@ jobs:
       run: codecov --branch=${GITHUB_REF##*/}
       env:
         CODECOV_TOKEN: ${{secrets.CODECOV_TOKEN}}
+
+  go:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@master
+    - uses: actions/setup-go@v2
+    - run: cd go && go test
